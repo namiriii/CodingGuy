@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=e2ehhw1agj"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경로 탐색 & 장소 추천</title>
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="script.js"></script>
+</head>
+<body>
+    <h1>경로 탐색 & 장소 추천</h1>
+    
+    <input id="start" placeholder="출발지 입력">
+    <div id="startSuggestions"></div>
+
+    <input id="end" placeholder="도착지 입력">
+    <div id="endSuggestions"></div>
+
+    <button onclick="searchRoute()">길찾기</button>
+
+    <div id="map"></div>
+</body>
+</html>
+

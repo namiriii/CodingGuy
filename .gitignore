@@ -1,0 +1,13 @@
+# 환경 변수 (API 키 등 보안 정보)
+.env
+
+# Node.js 모듈 (패키지 설치 폴더, 깃허브에 올릴 필요 없음)
+node_modules
+
+# 로그 파일
+npm-debug.log
+yarn-error.log
+
+# 운영 체제 관련 불필요한 파일 (맥OS, 윈도우)
+.DS_Store
+Thumbs.db
