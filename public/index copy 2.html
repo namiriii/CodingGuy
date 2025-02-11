@@ -1,3 +1,4 @@
+<!-- map.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -31,7 +32,7 @@
 <body>
   <h1>경로 찾기</h1>
 
-  <!-- 주소 입력 방식 섹션 (Google Places Autocomplete 사용) -->
+  <!-- 주소 입력 방식 섹션 -->
   <div class="section">
     <h2>주소 입력 (예: 강남구청, 춘천시청)</h2>
     <form id="addressForm">
@@ -45,7 +46,7 @@
     </form>
   </div>
 
-  <!-- 지도 클릭 방식 섹션 -->
+  <!-- 지도 클릭 방식 섹션 (선택 사항) -->
   <div class="section">
     <h2>지도 클릭 선택</h2>
     <p>지도에서 첫 번째 클릭: 출발지, 두 번째 클릭: 목적지로 설정됩니다.</p>
@@ -62,7 +63,7 @@
     <p id="endAddressDisplay">도착지 주소: 없음</p>
   </div>
 
-  <!-- 경로 정보를 표시하는 영역 (총 소요시간, 총 이동거리) -->
+  <!-- 경로 정보를 표시하는 영역 -->
   <div class="section" id="routeSummary">
     <h2>경로 정보</h2>
     <p id="durationInfo">총 소요시간: 없음</p>
@@ -80,11 +81,15 @@
     let polyline = null;
     let startPoint = null;
     let endPoint = null;
-    let startAutocomplete, endAutocomplete;
-    let restaurantMarkers = [];       // 맛집(음식점) 마커들을 저장할 배열
-    let currentInfoWindow = null;     // 현재 열려 있는 인포윈도우
+    let restaurantMarkers = [];
+    let currentInfoWindow = null;
 
-    // 지도 초기화 함수 (네이버 지도)
+    // Autocomplete 관련 변수 (자동완성 결과 저장)
+    let startAutocomplete, endAutocomplete;
+    let startPlaceFromAuto = null;
+    let endPlaceFromAuto = null;
+
+    // 지도 초기화 (네이버 지도)
     function initMap() {
       const mapOptions = {
         center: new naver.maps.LatLng(37.5665, 126.9780),
@@ -92,7 +97,7 @@
       };
       map = new naver.maps.Map('map', mapOptions);
 
-      // 지도 클릭 이벤트: 클릭하면 좌표를 받아서 출발지/목적지 설정 (자동완성 선택 외의 방법)
+      // 지도 클릭 이벤트 (자동완성 외의 방식으로 선택 시 사용)
       naver.maps.Event.addListener(map, 'click', function(e) {
         const clickedPoint = { lat: e.coord.lat(), lng: e.coord.lng() };
         if (!startPoint) {
@@ -125,61 +130,52 @@
       });
     }
 
-    // Google Places Autocomplete 초기화
+    /**
+     * Autocomplete 초기화 함수
+     * - 사용자가 자동완성 제안을 선택하면 해당 결과를 전역 변수에 저장합니다.
+     */
     function initAutocomplete() {
       const startInput = document.getElementById('startAddress');
       const endInput = document.getElementById('endAddress');
 
-      // Autocomplete 옵션: 일반 주소와 establishment(예: 구청, 시청) 모두 검색
       startAutocomplete = new google.maps.places.Autocomplete(startInput, { types: ['geocode', 'establishment'] });
       endAutocomplete = new google.maps.places.Autocomplete(endInput, { types: ['geocode', 'establishment'] });
 
-      // 출발지 입력 필드에 대해 장소 선택 이벤트 처리
       startAutocomplete.addListener('place_changed', function() {
         const place = startAutocomplete.getPlace();
-        if (!place.geometry) {
-          alert("출발지에 대한 상세 정보를 찾을 수 없습니다.");
-          return;
+        if (place && place.geometry) {
+          startPlaceFromAuto = place;
+        } else {
+          startPlaceFromAuto = null;
         }
-        startPoint = {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
-        };
-        if (startMarker) startMarker.setMap(null);
-        startMarker = new naver.maps.Marker({
-          position: new naver.maps.LatLng(startPoint.lat, startPoint.lng),
-          map: map,
-          animation: naver.maps.Animation.DROP,
-          icon: {
-            content: `<div style="background: white; border: 2px solid green; border-radius: 50%; width: 40px; height: 40px;
-                      display: flex; align-items: center; justify-content: center; font-weight: bold; color: green;">출발</div>`
-          }
-        });
-        updateAddressDisplay(startPoint, 'startAddressDisplay');
       });
 
-      // 목적지 입력 필드에 대해 장소 선택 이벤트 처리
       endAutocomplete.addListener('place_changed', function() {
         const place = endAutocomplete.getPlace();
-        if (!place.geometry) {
-          alert("목적지에 대한 상세 정보를 찾을 수 없습니다.");
-          return;
+        if (place && place.geometry) {
+          endPlaceFromAuto = place;
+        } else {
+          endPlaceFromAuto = null;
         }
-        endPoint = {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
-        };
-        if (endMarker) endMarker.setMap(null);
-        endMarker = new naver.maps.Marker({
-          position: new naver.maps.LatLng(endPoint.lat, endPoint.lng),
-          map: map,
-          animation: naver.maps.Animation.DROP,
-          icon: {
-            content: `<div style="background: white; border: 2px solid red; border-radius: 50%; width: 40px; height: 40px;
-                      display: flex; align-items: center; justify-content: center; font-weight: bold; color: red;">도착</div>`
-          }
-        });
-        updateAddressDisplay(endPoint, 'endAddressDisplay');
+      });
+    }
+
+    /**
+     * findPlaceByText 함수
+     * - Google PlacesService의 findPlaceFromQuery 메서드를 이용해
+     *   사용자가 입력한 텍스트로 장소 검색을 수행하고 첫 번째 결과를 callback으로 전달합니다.
+     */
+    function findPlaceByText(input, callback) {
+      const service = new google.maps.places.PlacesService(document.createElement('div'));
+      service.findPlaceFromQuery({
+        query: input,
+        fields: ['name', 'geometry', 'formatted_address']
+      }, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+          callback(results[0]);
+        } else {
+          alert('장소를 찾을 수 없습니다: ' + input);
+        }
       });
     }
 
@@ -205,14 +201,85 @@
       });
     }
 
-    // 폼 제출 시 두 입력 필드에 모두 값이 있으면 경로 요청 실행
+    /**
+     * 폼 제출 이벤트 처리
+     * - 먼저 자동완성 결과가 있다면 그 결과를 사용하고,
+     *   없으면 findPlaceByText를 통해 텍스트 검색을 수행합니다.
+     */
     document.getElementById('addressForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      if (!startPoint || !endPoint) {
-        alert("출발지와 목적지를 모두 선택해주세요.");
-        return;
-      }
-      fetchRoute();
+      resetMap();
+
+      const startInputText = document.getElementById('startAddress').value;
+      const endInputText = document.getElementById('endAddress').value;
+
+      // Promise를 사용하여 두 입력에 대해 처리
+      const startPromise = new Promise((resolve, reject) => {
+        if (startPlaceFromAuto && startPlaceFromAuto.geometry) {
+          resolve(startPlaceFromAuto);
+        } else {
+          findPlaceByText(startInputText, function(place) {
+            if (place) resolve(place);
+            else reject('출발지를 찾을 수 없습니다.');
+          });
+        }
+      });
+
+      const endPromise = new Promise((resolve, reject) => {
+        if (endPlaceFromAuto && endPlaceFromAuto.geometry) {
+          resolve(endPlaceFromAuto);
+        } else {
+          findPlaceByText(endInputText, function(place) {
+            if (place) resolve(place);
+            else reject('목적지를 찾을 수 없습니다.');
+          });
+        }
+      });
+
+      Promise.all([startPromise, endPromise])
+        .then(results => {
+          const startPlace = results[0];
+          const endPlace = results[1];
+
+          startPoint = {
+            lat: startPlace.geometry.location.lat(),
+            lng: startPlace.geometry.location.lng()
+          };
+          endPoint = {
+            lat: endPlace.geometry.location.lat(),
+            lng: endPlace.geometry.location.lng()
+          };
+
+          // 출발지 마커 생성
+          startMarker = new naver.maps.Marker({
+            position: new naver.maps.LatLng(startPoint.lat, startPoint.lng),
+            map: map,
+            animation: naver.maps.Animation.DROP,
+            icon: {
+              content: `<div style="background: white; border: 2px solid green; border-radius: 50%; width: 40px; height: 40px;
+                        display: flex; align-items: center; justify-content: center; font-weight: bold; color: green;">출발</div>`
+            }
+          });
+          updateAddressDisplay(startPoint, 'startAddressDisplay');
+
+          // 목적지 마커 생성
+          endMarker = new naver.maps.Marker({
+            position: new naver.maps.LatLng(endPoint.lat, endPoint.lng),
+            map: map,
+            animation: naver.maps.Animation.DROP,
+            icon: {
+              content: `<div style="background: white; border: 2px solid red; border-radius: 50%; width: 40px; height: 40px;
+                        display: flex; align-items: center; justify-content: center; font-weight: bold; color: red;">도착</div>`
+            }
+          });
+          updateAddressDisplay(endPoint, 'endAddressDisplay');
+
+          // 경로 요청
+          fetchRoute();
+        })
+        .catch(error => {
+          alert(error);
+        });
     });
 
     // 서버에 경로 요청 (출발지와 목적지 좌표 전달)
@@ -227,7 +294,7 @@
       .catch(error => console.error('경로 요청 실패:', error));
     }
 
-    // 두 좌표 사이의 거리를 미터 단위로 계산 (Haversine 공식 사용)
+    // 두 좌표 사이의 거리를 미터 단위로 계산 (Haversine 공식)
     function getDistance(lat1, lng1, lat2, lng2) {
       const R = 6371000; // 지구 반지름 (미터)
       const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -303,7 +370,7 @@
                 const ratingB = b.rating ? b.rating : 0;
                 return ratingB - ratingA;
               });
-              const top3 = sorted.slice(0, 0);
+              const top3 = sorted.slice(0, 3);
               top3.forEach(place => {
                 const restaurantLatLng = new naver.maps.LatLng(place.geometry.location.lat, place.geometry.location.lng);
                 const marker = new naver.maps.Marker({
@@ -376,7 +443,7 @@
       }
     });
 
-    // 초기화 버튼: 지도와 표시된 정보를 모두 초기화
+    // 초기화 버튼 이벤트: 지도 및 표시된 정보 초기화
     document.getElementById('resetBtn').addEventListener('click', function() {
       resetMap();
       document.getElementById('addressForm').reset();
@@ -411,7 +478,7 @@
       currentInfoWindow = null;
     }
 
-    // 페이지 로드 시 실행: 지도와 Autocomplete 초기화
+    // 페이지 로드 시 실행: 지도와 Autocomplete 초기화 (자동완성과 텍스트 검색 둘 다 사용)
     window.onload = function() {
       initMap();
       initAutocomplete();
