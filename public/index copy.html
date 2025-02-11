@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naver Map API</title>
+    <script src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=id0ukwormz&submodules=geocoder,directions"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 400px;
+        }
+        #route-form {
+            margin-top: 20px;
+        }
+        label {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>출발지와 목적지를 입력하여 경로 찾기</h1>
+
+    <form id="route-form">
+        <label for="start">출발지:</label>
+        <input type="text" id="start" name="start" required><br><br>
+
+        <label for="end">목적지:</label>
+        <input type="text" id="end" name="end" required><br><br>
+        
+        <button type="submit">경로 찾기</button>
+    </form>
+
+    <div id="map"></div>
+
+    <script>
+        let map;
+
+        function initMap() {
+            const mapOptions = {
+                center: new naver.maps.LatLng(37.5665, 126.9780),
+                zoom: 15
+            };
+            map = new naver.maps.Map('map', mapOptions);
+        }
+
+        function geocodeAddress(address, callback) {
+            naver.maps.Service.geocode({ query: address }, function(status, response) {
+                if (status === naver.maps.Service.Status.OK) {
+                    const result = response.v2.addresses[0];
+                    const point = {
+                        lat: parseFloat(result.y),
+                        lng: parseFloat(result.x)
+                    };
+                    callback(point);
+                } else {
+                    alert('주소를 찾을 수 없습니다.');
+                }
+            });
+        }
+
+        function drawRoute(routeData) {
+            if (!routeData || !routeData.route) {
+                alert('경로를 찾을 수 없습니다.');
+                return;
+            }
+
+            const path = routeData.route.traoptimal[0].path.map(coord => new naver.maps.LatLng(coord[1], coord[0]));
+            const polyline = new naver.maps.Polyline({
+                path: path,
+                strokeColor: "#FF0000",
+                strokeWeight: 5,
+                map: map
+            });
+
+            const bounds = new naver.maps.LatLngBounds();
+            path.forEach(coord => bounds.extend(coord));
+            map.fitBounds(bounds);
+        }
+
+        document.getElementById('route-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const startAddress = document.getElementById('start').value;
+            const endAddress = document.getElementById('end').value;
+            
+
+            geocodeAddress(startAddress, function(startPoint) {
+                console.log("출발지 좌표:", startPoint);
+                geocodeAddress(endAddress, function(endPoint) {
+                    console.log("목적지 좌표:", endPoint);
+                    fetch('/get-route', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ start: startPoint, end: endPoint})
+                    })
+                    .then(response => response.json())
+                    .then(data => drawRoute(data))
+                    .catch(error => console.error('경로 요청 실패:', error));
+                });
+            });
+        });
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
