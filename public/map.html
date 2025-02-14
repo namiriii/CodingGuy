@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>경로 찾기 - 주소 입력 및 지도 클릭</title>
   <!-- 네이버 지도 API (geocoder, directions 포함) -->
-  <script src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=id0ukwormz&submodules=geocoder,directions"></script>
+  <script
+    src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=id0ukwormz&submodules=geocoder,directions"></script>
   <!-- Google Maps JavaScript API (Places 라이브러리 포함) -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLFKT4csgikH-xFcNh2-yKVk2rS5G6uYQ&libraries=places"></script>
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLFKT4csgikH-xFcNh2-yKVk2rS5G6uYQ&libraries=places"></script>
   <style>
     /* 지도 영역 스타일 */
     #map {
@@ -15,19 +18,25 @@
       height: 400px;
       margin-top: 20px;
     }
+
     .section {
       margin: 20px 0;
     }
+
     /* 주소 및 경로 정보 표시 영역 스타일 */
-    #addressDisplay, #routeSummary {
+    #addressDisplay,
+    #routeSummary {
       font-size: 16px;
       margin-top: 10px;
     }
-    #addressDisplay p, #routeSummary p {
+
+    #addressDisplay p,
+    #routeSummary p {
       margin: 4px 0;
     }
   </style>
 </head>
+
 <body>
   <h1>경로 찾기</h1>
 
@@ -43,6 +52,8 @@
       <br><br>
       <button type="submit">경로 찾기</button>
     </form>
+    <!-- 현위치 버튼 추가 -->
+    <button id="currentLocationBtn">현위치로 출발지 설정</button>
   </div>
 
   <!-- 지도 클릭 선택 섹션 -->
@@ -86,7 +97,7 @@
         zoom: 15
       };
       map = new naver.maps.Map('map', mapOptions);
-      naver.maps.Event.addListener(map, 'click', function(e) {
+      naver.maps.Event.addListener(map, 'click', function (e) {
         const clickedPoint = { lat: e.coord.lat(), lng: e.coord.lng() };
         if (!startPoint) {
           startPoint = clickedPoint;
@@ -124,11 +135,11 @@
       const endInput = document.getElementById('endAddress');
       startAutocomplete = new google.maps.places.Autocomplete(startInput, { types: ['geocode', 'establishment'] });
       endAutocomplete = new google.maps.places.Autocomplete(endInput, { types: ['geocode', 'establishment'] });
-      startAutocomplete.addListener('place_changed', function() {
+      startAutocomplete.addListener('place_changed', function () {
         const place = startAutocomplete.getPlace();
         startPlaceFromAuto = (place && place.geometry) ? place : null;
       });
-      endAutocomplete.addListener('place_changed', function() {
+      endAutocomplete.addListener('place_changed', function () {
         const place = endAutocomplete.getPlace();
         endPlaceFromAuto = (place && place.geometry) ? place : null;
       });
@@ -149,24 +160,33 @@
       });
     }
 
-    // 역지오코딩 (네이버 API)
+    /* 
+      역지오코딩 함수  
+      elementId 파라미터에 따라 (출발지/도착지 주소 표시 영역) 주소를 업데이트하고,
+      만약 출발지일 경우 텍스트박스 (#startAddress)에도 값을 채워줍니다.
+    */
     function updateAddressDisplay(point, elementId) {
       naver.maps.Service.reverseGeocode({
         location: new naver.maps.LatLng(point.lat, point.lng)
-      }, function(status, response) {
-        let displayText = (elementId === 'startAddressDisplay') ? "출발지 주소: " : "도착지 주소: ";
+      }, function (status, response) {
+        let label = (elementId === 'startAddressDisplay') ? "출발지 주소: " : "도착지 주소: ";
+        let address = "";
         if (status === naver.maps.Service.Status.OK) {
           const items = response.result.items;
-          displayText += (items && items.length > 0) ? items[0].address : "주소를 찾을 수 없음";
+          address = (items && items.length > 0) ? items[0].address : "주소를 찾을 수 없음";
         } else {
-          displayText += "주소를 찾을 수 없음";
+          address = "주소를 찾을 수 없음";
         }
-        document.getElementById(elementId).innerText = displayText;
+        document.getElementById(elementId).innerText = label + address;
+        // 만약 출발지라면 입력 텍스트박스 (#startAddress)에도 주소 업데이트
+        if (elementId === 'startAddressDisplay') {
+          document.getElementById('startAddress').value = address;
+        }
       });
     }
 
     // 폼 제출 이벤트
-    document.getElementById('addressForm').addEventListener('submit', function(e) {
+    document.getElementById('addressForm').addEventListener('submit', function (e) {
       e.preventDefault();
       resetMap();
       const startInputText = document.getElementById('startAddress').value;
@@ -175,7 +195,7 @@
         if (startPlaceFromAuto && startPlaceFromAuto.geometry) {
           resolve(startPlaceFromAuto);
         } else {
-          findPlaceByText(startInputText, function(place) {
+          findPlaceByText(startInputText, function (place) {
             place ? resolve(place) : reject('출발지를 찾을 수 없습니다.');
           });
         }
@@ -184,7 +204,7 @@
         if (endPlaceFromAuto && endPlaceFromAuto.geometry) {
           resolve(endPlaceFromAuto);
         } else {
-          findPlaceByText(endInputText, function(place) {
+          findPlaceByText(endInputText, function (place) {
             place ? resolve(place) : reject('목적지를 찾을 수 없습니다.');
           });
         }
@@ -221,6 +241,38 @@
         });
     });
 
+    // 현위치 버튼 이벤트 처리
+    document.getElementById('currentLocationBtn').addEventListener('click', function () {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          // 기존의 출발지 마커가 있다면 제거
+          if (startMarker) {
+            startMarker.setMap(null);
+          }
+          startPoint = { lat, lng };
+          startMarker = new naver.maps.Marker({
+            position: new naver.maps.LatLng(lat, lng),
+            map: map,
+            animation: naver.maps.Animation.DROP,
+            icon: {
+              content: `<div style="background: white; border: 2px solid green; border-radius: 50%; width:40px; height:40px;
+                        display: flex; align-items: center; justify-content: center; font-weight: bold; color: green;">출발</div>`
+            }
+          });
+          // 지도 중심을 현재 위치로 이동
+          map.setCenter(new naver.maps.LatLng(lat, lng));
+          updateAddressDisplay(startPoint, 'startAddressDisplay');
+          alert("현재 위치가 출발지로 설정되었습니다.");
+        }, function (error) {
+          alert("위치 정보를 가져올 수 없습니다: " + error.message);
+        });
+      } else {
+        alert("이 브라우저에서는 지오로케이션을 지원하지 않습니다.");
+      }
+    });
+
     // 서버에 경로 요청
     function fetchRoute() {
       fetch('/get-route', {
@@ -228,9 +280,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ start: startPoint, end: endPoint, mode: 'DRIVING' })
       })
-      .then(response => response.json())
-      .then(data => { drawRoute(data); })
-      .catch(error => console.error('경로 요청 실패:', error));
+        .then(response => response.json())
+        .then(data => { drawRoute(data); })
+        .catch(error => console.error('경로 요청 실패:', error));
     }
 
     // Haversine 공식으로 두 좌표 간 거리 계산
@@ -239,8 +291,8 @@
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLng = (lng2 - lng1) * Math.PI / 180;
       const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLng / 2) ** 2;
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
@@ -251,7 +303,7 @@
     function getTotalRouteLength(path) {
       let total = 0;
       for (let i = 0; i < path.length - 1; i++) {
-        total += getDistance(path[i].lat(), path[i].lng(), path[i+1].lat(), path[i+1].lng());
+        total += getDistance(path[i].lat(), path[i].lng(), path[i + 1].lat(), path[i + 1].lng());
       }
       return total;
     }
@@ -260,7 +312,7 @@
     function getPointAtDistance(path, targetDistance) {
       let accumulated = 0;
       for (let i = 0; i < path.length - 1; i++) {
-        const p1 = path[i], p2 = path[i+1];
+        const p1 = path[i], p2 = path[i + 1];
         const segmentDist = getDistance(p1.lat(), p1.lng(), p2.lat(), p2.lng());
         if (accumulated + segmentDist >= targetDistance) {
           const fraction = (targetDistance - accumulated) / segmentDist;
@@ -298,7 +350,7 @@
 
     // ── 각 구간 후보 지점에서 명소 1개 검색 (기본: 7000m부터 최대 15000m까지) ─────────────────────────────
     function fetchOneAttractionForPoint(point) {
-      const radii = [7000, 10000, 15000];
+      const radii = [800, 1000, 1500];
       let index = 0;
       function tryNext() {
         if (index >= radii.length) return Promise.resolve(null);
@@ -326,10 +378,10 @@
         return;
       }
       if (polyline) polyline.setMap(null);
-      
+
       const traoptimal = routeData.route.traoptimal[0];
       const path = traoptimal.path.map(coord => new naver.maps.LatLng(coord[1], coord[0]));
-      
+
       // 경로 폴리라인 그리기
       polyline = new naver.maps.Polyline({
         path: path,
@@ -370,7 +422,7 @@
       const restaurantPromises = candidatePoints.map(point => fetchOneRestaurantForPoint(point));
       const attractionPromises = candidatePoints.map(point => fetchOneAttractionForPoint(point));
 
-      // 처리: 음식점 마커(빨간색)
+      // 처리: 음식점 마커 (빨간색)
       Promise.all(restaurantPromises)
         .then(restaurants => {
           restaurants.forEach(place => {
@@ -393,17 +445,28 @@
                 : "";
               const contentString = `<div style="padding:10px;">
                 <h4 style="margin:0;">${place.name}</h4>
-                ${photoUrl ? `<img src="${photoUrl}" alt="${place.name}" style="width:100px;height:auto;margin:5px 0;"/>` : ""}
+                ${photoUrl ? `<img src="${photoUrl}" alt="${place.name}" style="width:50px;height:auto;margin:5px 0;"/>` : ""}
                 <p style="margin:5px 0;">평점: ${place.rating ? place.rating : '정보 없음'}</p>
                 <p style="margin:5px 0;">주소: ${place.vicinity ? place.vicinity : '정보 없음'}</p>
               </div>`;
               const infoWindow = new naver.maps.InfoWindow({ content: contentString });
-              naver.maps.Event.addListener(marker, 'click', function() {
-                if (currentInfoWindow) { currentInfoWindow.close(); }
-                infoWindow.open(map, marker);
-                currentInfoWindow = infoWindow;
+              naver.maps.Event.addListener(marker, 'click', function () {
+                // 만약 현재 열려있는 인포윈도우가 이 마커에 해당하는 인포윈도우라면
+                if (currentInfoWindow && currentInfoWindow === infoWindow) {
+                  infoWindow.close();
+                  currentInfoWindow = null;
+                } else {
+                  // 다른 인포윈도우가 열려있다면 먼저 닫고,
+                  if (currentInfoWindow) {
+                    currentInfoWindow.close();
+                  }
+                  // 새 인포윈도우 열기
+                  infoWindow.open(map, marker);
+                  currentInfoWindow = infoWindow;
+                }
               });
               restaurantMarkers.push(marker);
+
             }
           });
         })
@@ -437,21 +500,33 @@
                 <p style="margin:5px 0;">주소: ${place.vicinity ? place.vicinity : '정보 없음'}</p>
               </div>`;
               const infoWindow = new naver.maps.InfoWindow({ content: contentString });
-              naver.maps.Event.addListener(marker, 'click', function() {
-                if (currentInfoWindow) { currentInfoWindow.close(); }
-                infoWindow.open(map, marker);
-                currentInfoWindow = infoWindow;
+              naver.maps.Event.addListener(marker, 'click', function () {
+                // 만약 현재 열려있는 인포윈도우가 이 마커에 해당하는 인포윈도우라면
+                if (currentInfoWindow && currentInfoWindow === infoWindow) {
+                  infoWindow.close();
+                  currentInfoWindow = null;
+                } else {
+                  // 다른 인포윈도우가 열려있다면 먼저 닫고,
+                  if (currentInfoWindow) {
+                    currentInfoWindow.close();
+                  }
+                  // 새 인포윈도우 열기
+                  infoWindow.open(map, marker);
+                  currentInfoWindow = infoWindow;
+                }
               });
               attractionMarkers.push(marker);
+
             }
           });
         })
         .catch(err => console.error(err));
+
     }
 
     // ESC 키로 인포윈도우 닫기
-    document.addEventListener('keydown', function(e) {
-      if (e.key === "Escape" || e.keyCode === 27) {
+    document.addEventListener('keydown', function (e) {
+      if ((e.key === "Escape" || e.keyCode === 27)) {
         if (currentInfoWindow) {
           currentInfoWindow.close();
           currentInfoWindow = null;
@@ -460,7 +535,7 @@
     });
 
     // 초기화 버튼 이벤트
-    document.getElementById('resetBtn').addEventListener('click', function() {
+    document.getElementById('resetBtn').addEventListener('click', function () {
       resetMap();
       document.getElementById('addressForm').reset();
       document.getElementById('startAddressDisplay').innerText = "출발지 주소: 없음";
@@ -486,10 +561,11 @@
     }
 
     // 페이지 로드 시 초기화
-    window.onload = function() {
+    window.onload = function () {
       initMap();
       initAutocomplete();
     };
   </script>
 </body>
+
 </html>

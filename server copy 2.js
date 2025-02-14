@@ -50,7 +50,7 @@ app.get('/get-restaurants', async (req, res) => {
 
 // GET /get-attractions: 지정 좌표 주변 명소 검색 (기본 반경 1000m)
 app.get('/get-attractions', async (req, res) => {
-  const { lat, lng, radius = 3000 } = req.query;
+  const { lat, lng, radius = 7000 } = req.query;
   const type = 'tourist_attraction';
   const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=${type}&key=${googleApiKey}`;
   try {

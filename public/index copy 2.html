@@ -43,6 +43,8 @@
       <br><br>
       <button type="submit">경로 찾기</button>
     </form>
+    <!-- 현위치 버튼 추가 -->
+    <button id="currentLocationBtn">현위치로 출발지 설정</button>
   </div>
 
   <!-- 지도 클릭 선택 섹션 -->
@@ -149,19 +151,28 @@
       });
     }
 
-    // 역지오코딩 (네이버 API)
+    /* 
+      역지오코딩 함수  
+      elementId 파라미터에 따라 (출발지/도착지 주소 표시 영역) 주소를 업데이트하고,
+      만약 출발지일 경우 텍스트박스 (#startAddress)에도 값을 채워줍니다.
+    */
     function updateAddressDisplay(point, elementId) {
       naver.maps.Service.reverseGeocode({
         location: new naver.maps.LatLng(point.lat, point.lng)
       }, function(status, response) {
-        let displayText = (elementId === 'startAddressDisplay') ? "출발지 주소: " : "도착지 주소: ";
+        let label = (elementId === 'startAddressDisplay') ? "출발지 주소: " : "도착지 주소: ";
+        let address = "";
         if (status === naver.maps.Service.Status.OK) {
           const items = response.result.items;
-          displayText += (items && items.length > 0) ? items[0].address : "주소를 찾을 수 없음";
+          address = (items && items.length > 0) ? items[0].address : "주소를 찾을 수 없음";
         } else {
-          displayText += "주소를 찾을 수 없음";
+          address = "주소를 찾을 수 없음";
         }
-        document.getElementById(elementId).innerText = displayText;
+        document.getElementById(elementId).innerText = label + address;
+        // 만약 출발지라면 입력 텍스트박스 (#startAddress)에도 주소 업데이트
+        if (elementId === 'startAddressDisplay') {
+          document.getElementById('startAddress').value = address;
+        }
       });
     }
 
@@ -219,6 +230,38 @@
         .catch(error => {
           alert(error);
         });
+    });
+
+    // 현위치 버튼 이벤트 처리
+    document.getElementById('currentLocationBtn').addEventListener('click', function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          // 기존의 출발지 마커가 있다면 제거
+          if (startMarker) {
+            startMarker.setMap(null);
+          }
+          startPoint = { lat, lng };
+          startMarker = new naver.maps.Marker({
+            position: new naver.maps.LatLng(lat, lng),
+            map: map,
+            animation: naver.maps.Animation.DROP,
+            icon: {
+              content: `<div style="background: white; border: 2px solid green; border-radius: 50%; width:40px; height:40px;
+                        display: flex; align-items: center; justify-content: center; font-weight: bold; color: green;">출발</div>`
+            }
+          });
+          // 지도 중심을 현재 위치로 이동
+          map.setCenter(new naver.maps.LatLng(lat, lng));
+          updateAddressDisplay(startPoint, 'startAddressDisplay');
+          alert("현재 위치가 출발지로 설정되었습니다.");
+        }, function(error) {
+          alert("위치 정보를 가져올 수 없습니다: " + error.message);
+        });
+      } else {
+        alert("이 브라우저에서는 지오로케이션을 지원하지 않습니다.");
+      }
     });
 
     // 서버에 경로 요청
@@ -296,9 +339,9 @@
       return tryNext();
     }
 
-    // ── 각 구간 후보 지점에서 명소 1개 검색 (기본: 1000m부터 최대 2000m까지) ─────────────────────────────
+    // ── 각 구간 후보 지점에서 명소 1개 검색 (기본: 7000m부터 최대 15000m까지) ─────────────────────────────
     function fetchOneAttractionForPoint(point) {
-      const radii = [3000, 4000, 5000];
+      const radii = [800, 1000, 1500];
       let index = 0;
       function tryNext() {
         if (index >= radii.length) return Promise.resolve(null);
@@ -370,7 +413,7 @@
       const restaurantPromises = candidatePoints.map(point => fetchOneRestaurantForPoint(point));
       const attractionPromises = candidatePoints.map(point => fetchOneAttractionForPoint(point));
 
-      // 처리: 음식점 마커(빨간색)
+      // 처리: 음식점 마커 (빨간색)
       Promise.all(restaurantPromises)
         .then(restaurants => {
           restaurants.forEach(place => {
@@ -399,11 +442,22 @@
               </div>`;
               const infoWindow = new naver.maps.InfoWindow({ content: contentString });
               naver.maps.Event.addListener(marker, 'click', function() {
-                if (currentInfoWindow) { currentInfoWindow.close(); }
-                infoWindow.open(map, marker);
-                currentInfoWindow = infoWindow;
-              });
+  // 만약 현재 열려있는 인포윈도우가 이 마커에 해당하는 인포윈도우라면
+  if (currentInfoWindow && currentInfoWindow === infoWindow) {
+    infoWindow.close();
+    currentInfoWindow = null;
+  } else {
+    // 다른 인포윈도우가 열려있다면 먼저 닫고,
+    if (currentInfoWindow) {
+      currentInfoWindow.close();
+    }
+    // 새 인포윈도우 열기
+    infoWindow.open(map, marker);
+    currentInfoWindow = infoWindow;
+  }
+});
               restaurantMarkers.push(marker);
+              
             }
           });
         })
@@ -451,7 +505,7 @@
 
     // ESC 키로 인포윈도우 닫기
     document.addEventListener('keydown', function(e) {
-      if (e.key === "Escape" || e.keyCode === 27) {
+      if ((e.key === "Escape" || e.keyCode === 27)) {
         if (currentInfoWindow) {
           currentInfoWindow.close();
           currentInfoWindow = null;
